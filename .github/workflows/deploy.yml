@@ -1,0 +1,103 @@
+name: Test and Deploy Laravel Application
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  test-and-deploy:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: test_database
+          MYSQL_USER: test_user
+          MYSQL_PASSWORD: test_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
+    steps:
+      # Krok 1: Klonowanie kodu
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Krok 2: Ustawienie PHP
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: 8.2
+          extensions: mbstring, pdo, pdo_mysql
+          coverage: none
+
+      # Krok 3: Instalacja zależności Composer
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-progress --optimize-autoloader
+
+      # Krok 4: Utworzenie .env.testing
+      - name: Create .env.testing
+        run: |
+          cat <<EOF > .env.testing
+          APP_ENV=testing
+          APP_KEY=base64:$(php artisan key:generate --show)
+          DB_CONNECTION=mysql
+          DB_HOST=127.0.0.1
+          DB_PORT=3306
+          DB_DATABASE=test_database
+          DB_USERNAME=test_user
+          DB_PASSWORD=test_password
+          CACHE_DRIVER=array
+          SESSION_DRIVER=array
+          QUEUE_CONNECTION=sync
+          EOF
+
+      # Krok 5: Migracje w środowisku testowym
+      - name: Run migrations
+        run: php artisan migrate --env=testing --force
+
+      # Krok 6: Uruchomienie testów
+      - name: Run tests
+        run: php artisan test
+
+      # Krok 7: Instalacja Node.js
+      - name: Install Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      # Krok 8: Instalacja zależności npm
+      - name: Install npm dependencies
+        run: npm ci
+
+      # Krok 9: Budowanie zasobów front-endowych
+      - name: Build assets
+        run: npm run build
+
+      # Krok 10: Start SSH agent i dodanie klucza prywatnego
+      - name: Start SSH agent
+        uses: webfactory/ssh-agent@v0.6.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      # Krok 11: Wdrożenie na serwer
+      - name: Deploy code to server
+        if: success()
+        run: |
+          ssh -o StrictHostKeyChecking=no sledzislaw@s40.mydevil.net << 'EOF'
+          cd domains/chat.softaware.pl
+          git pull origin main
+          composer82 install --no-dev --optimize-autoloader
+          php82 artisan migrate --force
+          npm ci
+          npm run build
+          chmod -R 775 storage bootstrap/cache
+          php82 artisan optimize:clear
+          EOF

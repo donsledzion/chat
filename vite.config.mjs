@@ -7,11 +7,16 @@ export default defineConfig({
         laravel({
             input: ['resources/css/app.css', 'resources/js/app.js'],
             refresh: true,
-            buildDirectory: 'build',
+            hotFile: 'public_html/hot', // Hot file dla dev servera
         }),
         vue(),
     ],
     build: {
-        outDir: 'public_html/build',
+        outDir: 'public_html/build', // Katalog docelowy
+    },
+    server: {
+        host: 'localhost',
+        port: 5173,
+        origin: 'http://localhost:5173',
     },
 });

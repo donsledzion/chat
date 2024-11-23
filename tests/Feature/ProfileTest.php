@@ -25,18 +25,22 @@ class ProfileTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $response = $this->actingAs($user)->patch('/profile', [
-            'name' => 'Updated Name',
-            'email' => 'updated@example.com',
-        ]);
+        $response = $this
+            ->actingAs($user)
+            ->patch('/profile', [
+                'name' => 'Test User',
+                'email' => 'test@example.com',
+            ]);
 
         $response
             ->assertSessionHasNoErrors()
             ->assertRedirect('/profile');
 
         $user->refresh();
-        $this->assertSame('Updated Name', $user->name);
-        $this->assertSame('updated@example.com', $user->email);
+
+        $this->assertSame('Test User', $user->name);
+        $this->assertSame('test@example.com', $user->email);
+        $this->assertNull($user->email_verified_at);
     }
 
     public function test_email_verification_status_is_unchanged_when_the_email_address_is_unchanged(): void

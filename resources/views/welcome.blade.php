@@ -15,6 +15,7 @@
 </head>
 <body class="font-sans antialiased">
 <div id="app">
+    <h1 style="color: green">Welcome to chat</h1>
     <!-- Vue.js dynamically rendered content -->
 </div>
 

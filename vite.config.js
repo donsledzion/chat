@@ -13,7 +13,7 @@ export default defineConfig({
         }),
         vue(),
     ],
-    build: {
-        outDir: 'public_html/build', // Właściwa ścieżka dla skompilowanych plików
-    },
+    /*build: {
+        outDir: 'public_html/build',
+    },*/
 });

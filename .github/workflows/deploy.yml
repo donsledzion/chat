@@ -93,7 +93,8 @@ jobs:
         if: success()
         run: |
           ssh -o StrictHostKeyChecking=no sledzislaw@s40.mydevil.net << 'EOF'
-          set -e
+          alias php82='/usr/bin/php8.2'
+          alias composer82='php82 /usr/local/bin/composer'
           cd domains/chat.softaware.pl
 
           echo "Removing old build directory..."

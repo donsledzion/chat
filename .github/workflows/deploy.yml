@@ -109,7 +109,10 @@ jobs:
           git pull origin main
 
           echo "Installing Composer dependencies..."
-          composer82 install --no-dev --optimize-autoloader
+          php82 /usr/local/bin/composer install --no-dev --optimize-autoloader
+
+          echo "Dumping Composer autoload..."
+          php82 /usr/local/bin/composer dump-autoload
 
           echo "Running database migrations..."
           php82 artisan migrate --force

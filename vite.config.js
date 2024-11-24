@@ -5,16 +5,15 @@ import vue from '@vitejs/plugin-vue';
 export default defineConfig({
     plugins: [
         laravel({
-            input: 'resources/js/app.js',
+            input: ['resources/css/app.css', 'resources/js/app.js'],
+            publicDirectory: 'public_html/',
+            hotFile: 'public_html/hot',
+            buildDirectory: 'build',
             refresh: true,
         }),
-        vue({
-            template: {
-                transformAssetUrls: {
-                    base: null,
-                    includeAbsolute: false,
-                },
-            },
-        }),
+        vue(),
     ],
+    build: {
+        outDir: 'public_html/build', // Właściwa ścieżka dla skompilowanych plików
+    },
 });

@@ -22,6 +22,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Vite::useBuildDirectory('public_html/build');
         Vite::prefetch(concurrency: 3);
     }
 }

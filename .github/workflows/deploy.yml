@@ -93,12 +93,45 @@ jobs:
         if: success()
         run: |
           ssh -o StrictHostKeyChecking=no sledzislaw@s40.mydevil.net << 'EOF'
+          set -e
           cd domains/chat.softaware.pl
+
+          echo "Removing old build directory..."
+          rm -rf public_html/build
+
+          echo "Pulling latest code from repository..."
           git pull origin main
+
+          echo "Installing Composer dependencies..."
           composer82 install --no-dev --optimize-autoloader
+
+          echo "Running database migrations..."
           php82 artisan migrate --force
+
+          echo "Installing npm dependencies..."
           npm ci
+
+          echo "Building assets..."
           npm run build
+
+          echo "Verifying build output..."
+          if [ ! -d "public_html/build" ]; then
+            echo "Build directory not found in public_html. Checking public/build..."
+            if [ -d "public/build" ]; then
+              echo "Found build in public/build. Moving to public_html/build..."
+              mv public/build public_html/
+              rm -rf public
+            else
+              echo "Error: Build assets not found in both public_html and public."
+              exit 1
+            fi
+          else
+            echo "Build directory verified in public_html."
+          fi
+
+          echo "Setting permissions..."
           chmod -R 775 storage bootstrap/cache
+
+          echo "Clearing caches and optimizing..."
           php82 artisan optimize:clear
           EOF

@@ -4,6 +4,7 @@
     </IfModule>
 
     RewriteEngine On
+    AddType application/x-httpd-php82 .php
 
     # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .

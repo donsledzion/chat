@@ -1,137 +1,51 @@
-name: Test and Deploy Laravel Application
+- name: Deploy code to server
+  if: success()
+  run: |
+    ssh -o StrictHostKeyChecking=no sledzislaw@s40.mydevil.net << 'EOF'
+    set -e
+    cd domains/chat.softaware.pl
 
-on:
-  push:
-    branches:
-      - main
+    echo "Removing old build directory..."
+    rm -rf public_html/build
 
-jobs:
-  test-and-deploy:
-    runs-on: ubuntu-latest
+    echo "Stashing any local changes..."
+    git reset --hard
+    git clean -fd
+    git stash || true
 
-    services:
-      mysql:
-        image: mysql:8
-        env:
-          MYSQL_ROOT_PASSWORD: password
-          MYSQL_DATABASE: test_database
-          MYSQL_USER: test_user
-          MYSQL_PASSWORD: test_password
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping --silent"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=3
+    echo "Pulling latest code from repository..."
+    git pull origin main
 
-    steps:
-      # Krok 1: Klonowanie kodu
-      - name: Checkout code
-        uses: actions/checkout@v3
+    echo "Installing Composer dependencies..."
+    composer82 install --no-dev --optimize-autoloader
 
-      # Krok 2: Ustawienie PHP
-      - name: Set up PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: 8.2
-          extensions: mbstring, pdo, pdo_mysql
-          coverage: none
+    echo "Running database migrations..."
+    php82 artisan migrate --force
 
-      # Krok 3: Instalacja zależności Composer
-      - name: Install Composer dependencies
-        run: composer install --prefer-dist --no-progress --optimize-autoloader
+    echo "Installing npm dependencies..."
+    npm ci
 
-      # Krok 4: Utworzenie .env.testing
-      - name: Create .env.testing
-        run: |
-          cat <<EOF > .env.testing
-          APP_ENV=testing
-          APP_KEY=
-          DB_CONNECTION=mysql
-          DB_HOST=127.0.0.1
-          DB_PORT=3306
-          DB_DATABASE=test_database
-          DB_USERNAME=test_user
-          DB_PASSWORD=test_password
-          CACHE_DRIVER=array
-          SESSION_DRIVER=array
-          QUEUE_CONNECTION=sync
-          EOF
-          php artisan key:generate --env=testing
+    echo "Building assets..."
+    npm run build
 
-      # Krok 5: Migracje w środowisku testowym
-      - name: Run migrations
-        run: php artisan migrate --env=testing --force
+    echo "Verifying build output..."
+    if [ ! -d "public_html/build" ]; then
+      echo "Build directory not found in public_html. Checking public/build..."
+      if [ -d "public/build" ]; then
+        echo "Found build in public/build. Moving to public_html/build..."
+        mv public/build public_html/
+        rm -rf public
+      else
+        echo "Error: Build assets not found in both public_html and public."
+        exit 1
+      fi
+    else
+      echo "Build directory verified in public_html."
+    fi
 
-      # Krok 6: Uruchomienie testów
-      - name: Run tests
-        run: php artisan test
+    echo "Setting permissions..."
+    chmod -R 775 storage bootstrap/cache
 
-      # Krok 7: Instalacja Node.js
-      - name: Install Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
-
-      # Krok 8: Instalacja zależności npm
-      - name: Install npm dependencies
-        run: npm ci
-
-      # Krok 9: Budowanie zasobów front-endowych
-      - name: Build assets
-        run: npm run build
-
-      # Krok 10: Start SSH agent i dodanie klucza prywatnego
-      - name: Start SSH agent
-        uses: webfactory/ssh-agent@v0.6.0
-        with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
-      # Krok 11: Wdrożenie na serwer
-      - name: Deploy code to server
-        if: success()
-        run: |
-          ssh -o StrictHostKeyChecking=no sledzislaw@s40.mydevil.net << 'EOF'
-          set -e
-          cd domains/chat.softaware.pl
-
-          echo "Removing old build directory..."
-          rm -rf public_html/build
-
-          echo "Pulling latest code from repository..."
-          git pull origin main
-
-          echo "Installing Composer dependencies..."
-          composer82 install --no-dev --optimize-autoloader
-
-          echo "Running database migrations..."
-          php82 artisan migrate --force
-
-          echo "Installing npm dependencies..."
-          npm ci
-
-          echo "Building assets..."
-          npm run build
-
-          echo "Verifying build output..."
-          if [ ! -d "public_html/build" ]; then
-            echo "Build directory not found in public_html. Checking public/build..."
-            if [ -d "public/build" ]; then
-              echo "Found build in public/build. Moving to public_html/build..."
-              mv public/build public_html/
-              rm -rf public
-            else
-              echo "Error: Build assets not found in both public_html and public."
-              exit 1
-            fi
-          else
-            echo "Build directory verified in public_html."
-          fi
-
-          echo "Setting permissions..."
-          chmod -R 775 storage bootstrap/cache
-
-          echo "Clearing caches and optimizing..."
-          php82 artisan optimize:clear
-          EOF
+    echo "Clearing caches and optimizing..."
+    php82 artisan optimize:clear
+    EOF
